@@ -2,34 +2,76 @@
 Explainable rule-based signals: RSI, MACD, moving-average cross, Bollinger Bands.
 Each indicator votes BUY / SELL / HOLD; the composite is a simple majority score.
 This is intentionally transparent -- every signal can be traced back to a number.
+
+Indicators are computed by hand with pandas/numpy instead of the `pandas-ta`
+library. pandas-ta is effectively unmaintained and pulls in `numba`, which
+routinely breaks on whatever Python version hosting platforms (e.g. Streamlit
+Cloud) default to. These are the same standard formulas -- no behavior lost,
+one fragile dependency removed.
 """
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
-import pandas_ta as ta
 
 RSI_OVERSOLD = 30
 RSI_OVERBOUGHT = 70
 
 
+def _rsi(close: pd.Series, length: int = 14) -> pd.Series:
+    delta = close.diff()
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    # Wilder's smoothing, equivalent to what pandas-ta / most charting tools use
+    avg_gain = gain.ewm(alpha=1 / length, min_periods=length, adjust=False).mean()
+    avg_loss = loss.ewm(alpha=1 / length, min_periods=length, adjust=False).mean()
+    rs = avg_gain / avg_loss
+    return 100 - (100 / (1 + rs))
+
+
+def _macd(close: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9):
+    ema_fast = close.ewm(span=fast, adjust=False).mean()
+    ema_slow = close.ewm(span=slow, adjust=False).mean()
+    macd_line = ema_fast - ema_slow
+    signal_line = macd_line.ewm(span=signal, adjust=False).mean()
+    hist = macd_line - signal_line
+    return macd_line, signal_line, hist
+
+
+def _bollinger(close: pd.Series, length: int = 20, num_std: float = 2.0):
+    mid = close.rolling(length).mean()
+    std = close.rolling(length).std()
+    return mid - num_std * std, mid + num_std * std
+
+
+def _atr(high: pd.Series, low: pd.Series, close: pd.Series, length: int = 14) -> pd.Series:
+    prev_close = close.shift(1)
+    tr = pd.concat([
+        high - low,
+        (high - prev_close).abs(),
+        (low - prev_close).abs(),
+    ], axis=1).max(axis=1)
+    return tr.ewm(alpha=1 / length, min_periods=length, adjust=False).mean()
+
+
 def add_indicators(df: pd.DataFrame) -> pd.DataFrame:
     """Attach indicator columns to an OHLCV dataframe. Does not mutate input."""
     out = df.copy()
-    out["rsi14"] = ta.rsi(out["close"], length=14)
+    out["rsi14"] = _rsi(out["close"], length=14)
 
-    macd = ta.macd(out["close"], fast=12, slow=26, signal=9)
-    out["macd"] = macd["MACD_12_26_9"]
-    out["macd_signal"] = macd["MACDs_12_26_9"]
-    out["macd_hist"] = macd["MACDh_12_26_9"]
+    macd_line, signal_line, hist = _macd(out["close"], fast=12, slow=26, signal=9)
+    out["macd"] = macd_line
+    out["macd_signal"] = signal_line
+    out["macd_hist"] = hist
 
-    out["sma50"] = ta.sma(out["close"], length=50)
-    out["sma200"] = ta.sma(out["close"], length=200)
+    out["sma50"] = out["close"].rolling(50).mean()
+    out["sma200"] = out["close"].rolling(200).mean()
 
-    bb = ta.bbands(out["close"], length=20, std=2)
-    out["bb_lower"] = bb["BBL_20_2.0"]
-    out["bb_upper"] = bb["BBU_20_2.0"]
+    bb_lower, bb_upper = _bollinger(out["close"], length=20, num_std=2.0)
+    out["bb_lower"] = bb_lower
+    out["bb_upper"] = bb_upper
 
-    out["atr14"] = ta.atr(out["high"], out["low"], out["close"], length=14)
+    out["atr14"] = _atr(out["high"], out["low"], out["close"], length=14)
     return out
 
 
