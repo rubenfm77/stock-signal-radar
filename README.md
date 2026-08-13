@@ -1,11 +1,29 @@
 # 📡 Stock Signal Radar
 
-Personal quant research tool comparing **rule-based technical signals** against
-an **ML model (XGBoost, walk-forward validated)** across US, European, and
-Spanish equity markets.
+> ⚠️ **Educational project only. NOT investment advice, NOT a recommendation
+> to buy or sell any security.** This is a personal, experimental tool built
+> for learning purposes and portfolio demonstration — it is still in active
+> testing (beta) and may contain errors or incomplete data. See
+> [DISCLAIMER.md](./DISCLAIMER.md) for the full notice.
 
-> ⚠️ **Not investment advice.** See [DISCLAIMER.md](./DISCLAIMER.md). This is
-> a personal project in active testing, not a production trading system.
+## What this app does
+
+Stock Signal Radar pulls historical price data (via `yfinance`) for a curated
+list of US, European, and Spanish stocks, then generates two independent
+signals for each ticker so they can be compared side by side:
+
+1. **Rule-based technical signal** — a transparent, fully explainable score
+   built from RSI, MACD, the SMA50/SMA200 crossover, and Bollinger Bands.
+   Every BUY/SELL/HOLD label traces back to a specific indicator value.
+2. **ML signal (XGBoost)** — a gradient-boosted model trained on the same
+   indicators, validated with a **walk-forward** methodology (never a random
+   train/test split, to avoid leaking future data into training) and
+   reported with honest metrics: precision on the BUY/SELL class and a
+   commission-adjusted backtest return, not just raw accuracy.
+
+The app is meant to help study how technical and ML-based signals agree or
+diverge on real market data — not to generate trading orders. Nothing it
+outputs should be acted on as financial advice.
 
 ## Why two engines instead of one
 
