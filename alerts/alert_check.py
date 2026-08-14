@@ -30,8 +30,8 @@ from alerts.notifiers import send_telegram, send_email
 from alerts.state import load_state, save_state
 
 DISCLAIMER = (
-    "⚠️ Herramienta personal en test. No es consejo financiero ni "
-    "recomendación de inversión."
+    "⚠️ Personal tool in active testing. Not investment advice or a "
+    "recommendation to buy or sell."
 )
 
 
@@ -69,18 +69,18 @@ def analyze_ticker(ticker: str) -> dict | None:
 
 def format_change_alert(result: dict, previous: str) -> str:
     return (
-        f"🔔 *Cambio de señal: {result['ticker']}*\n"
+        f"🔔 *Signal change: {result['ticker']}*\n"
         f"{previous} → *{result['combined_signal']}*\n"
-        f"Precio: {result['close']}  |  Reglas: {result['rules_signal']}  |  "
+        f"Price: {result['close']}  |  Rules: {result['rules_signal']}  |  "
         f"ML: {result['ml_signal']}\n"
-        f"Fecha: {result['date']}\n\n{DISCLAIMER}"
+        f"Date: {result['date']}\n\n{DISCLAIMER}"
     )
 
 
 def format_daily_summary(active: list[dict]) -> str:
     if not active:
-        return f"📋 Resumen diario: sin señales BUY/SELL activas hoy.\n\n{DISCLAIMER}"
-    lines = ["📋 *Resumen diario — señales activas*\n"]
+        return f"📋 Daily summary: no active BUY/SELL signals today.\n\n{DISCLAIMER}"
+    lines = ["📋 *Daily summary — active signals*\n"]
     for r in sorted(active, key=lambda x: x["ticker"]):
         emoji = "🟢" if r["combined_signal"] == "BUY" else "🔴"
         lines.append(f"{emoji} {r['ticker']}: {r['combined_signal']} @ {r['close']}")
@@ -108,11 +108,11 @@ def main() -> None:
 
     for alert_text in change_alerts:
         send_telegram(alert_text)
-        send_email("📡 Stock Signal Radar — cambio de señal", alert_text)
+        send_email("📡 Stock Signal Radar — signal change", alert_text)
 
     summary_text = format_daily_summary(active_signals)
     send_telegram(summary_text)
-    send_email("📡 Stock Signal Radar — resumen diario", summary_text)
+    send_email("📡 Stock Signal Radar — daily summary", summary_text)
 
     save_state(state)
     print(f"Done. {len(results)} tickers analyzed, {len(change_alerts)} changes, "
