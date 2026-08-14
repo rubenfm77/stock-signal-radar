@@ -40,9 +40,10 @@ try:
     sig = latest_signal(ticker, enriched)
 except Exception as e:
     st.error(
-        f"Could not fetch enough data for {ticker}: {e}\n\n"
-        "This is usually Yahoo Finance rate-limiting shared cloud IPs, not a "
-        "bug in the app. Try again in a minute, or pick another ticker."
+        f"Could not fetch data for {ticker}: {e}\n\n"
+        "If this mentions a missing API key, it needs to be configured as a "
+        "Streamlit Cloud secret. If it's a data/rate-limit error, try again "
+        "in a minute or pick another ticker."
     )
     st.stop()
 
