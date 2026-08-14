@@ -53,6 +53,7 @@ def fetch_ohlcv(ticker: str, period: str = "2y", interval: str = "1d",
     path = _cache_path(ticker)
     if not force_refresh and _is_fresh(path):
         cached = pd.read_parquet(path)
+        cached = cached.dropna(subset=["open", "high", "low", "close"])
         if len(cached) >= MIN_ROWS_EXPECTED:
             return cached
         # stale cache is itself a partial response -- fall through and retry
@@ -63,13 +64,21 @@ def fetch_ohlcv(ticker: str, period: str = "2y", interval: str = "1d",
             df = yf.Ticker(ticker).history(period=period, interval=interval, auto_adjust=True)
             if df.empty:
                 raise ValueError(f"No data returned for {ticker}. Check the symbol/suffix.")
-            if len(df) < MIN_ROWS_EXPECTED:
-                raise ValueError(
-                    f"Partial data for {ticker}: got {len(df)} rows, expected at least "
-                    f"{MIN_ROWS_EXPECTED}. Likely a temporary Yahoo Finance rate limit."
-                )
+
             df = df.rename(columns=str.lower)[["open", "high", "low", "close", "volume"]]
             df.index.name = "date"
+
+            # Yahoo sometimes returns the full calendar range with most rows
+            # NaN (a soft block) instead of a short-but-clean history. Row
+            # *count* alone doesn't catch that -- drop empty rows first and
+            # validate on what's actually usable.
+            df = df.dropna(subset=["open", "high", "low", "close"])
+
+            if len(df) < MIN_ROWS_EXPECTED:
+                raise ValueError(
+                    f"Partial data for {ticker}: got {len(df)} valid rows, expected at "
+                    f"least {MIN_ROWS_EXPECTED}. Likely a temporary Yahoo Finance rate limit."
+                )
             df.to_parquet(path)
             return df
         except Exception as exc:
@@ -81,6 +90,7 @@ def fetch_ohlcv(ticker: str, period: str = "2y", interval: str = "1d",
     # cache if we have one, rather than crashing the whole page.
     if path.exists():
         cached = pd.read_parquet(path)
+        cached = cached.dropna(subset=["open", "high", "low", "close"])
         if len(cached) >= MIN_ROWS_EXPECTED:
             return cached
     raise last_error
