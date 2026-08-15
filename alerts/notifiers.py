@@ -13,8 +13,8 @@ import requests
 
 
 def send_telegram(message: str) -> None:
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+    token = os.environ.get("TELEGRAM_BOT_TOKEN") or None
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID") or None
     if not token or not chat_id:
         print("[notifiers] Telegram credentials missing, skipping Telegram send.")
         return
@@ -31,14 +31,20 @@ def send_telegram(message: str) -> None:
 
 
 def send_email(subject: str, body: str) -> None:
-    host = os.environ.get("SMTP_HOST")
-    port = int(os.environ.get("SMTP_PORT", "587"))
-    user = os.environ.get("SMTP_USER")
-    password = os.environ.get("SMTP_PASSWORD")
-    to_addr = os.environ.get("ALERT_EMAIL_TO", user)
+    host = os.environ.get("SMTP_HOST") or None
+    port_raw = os.environ.get("SMTP_PORT") or "587"
+    user = os.environ.get("SMTP_USER") or None
+    password = os.environ.get("SMTP_PASSWORD") or None
+    to_addr = os.environ.get("ALERT_EMAIL_TO") or user
 
     if not all([host, user, password, to_addr]):
         print("[notifiers] Email credentials missing, skipping email send.")
+        return
+
+    try:
+        port = int(port_raw)
+    except ValueError:
+        print(f"[notifiers] Invalid SMTP_PORT value {port_raw!r}, skipping email send.")
         return
 
     msg = MIMEText(body, "plain", "utf-8")
