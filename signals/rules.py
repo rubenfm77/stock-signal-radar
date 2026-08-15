@@ -130,8 +130,17 @@ def composite_signal(df_with_indicators: pd.DataFrame) -> pd.DataFrame:
 
 
 def latest_signal(ticker: str, df_with_indicators: pd.DataFrame) -> dict:
-    """Convenience: return the most recent row's signal as a flat dict for the UI."""
-    row = composite_signal(df_with_indicators).iloc[-1]
+    """Convenience: return the most recent row *with a valid close* as a flat dict.
+
+    Guards against an in-progress "today" row Yahoo sometimes includes before
+    a market has opened (or after a partial/blocked fetch) -- that row can
+    carry a NaN close even though the row itself isn't empty.
+    """
+    signalled = composite_signal(df_with_indicators)
+    valid = signalled.dropna(subset=["close"])
+    if valid.empty:
+        raise ValueError(f"No valid close price available for {ticker}.")
+    row = valid.iloc[-1]
     return {
         "ticker": ticker,
         "date": row.name,
